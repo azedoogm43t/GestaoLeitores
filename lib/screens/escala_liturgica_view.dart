@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:gestao_leitores/models/usuarios.dart';
 import 'package:gestao_leitores/screens/eventos_religiosos.dart';
@@ -25,136 +26,152 @@ class _EscalaLiturgicaViewState extends State<EscalaLiturgicaView> {
   List<EscalaLiturgica> _todasEscalas = [];
   List<EscalaLiturgica> _escalasFiltradas = [];
   bool _buscando = false;
+  bool _offline = false;
 
   @override
   void initState() {
     super.initState();
     initializeDateFormatting('pt_PT', null);
+    _verificarConectividade();
+  }
+
+  void _verificarConectividade() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+    setState(() {
+      _offline = connectivityResult == ConnectivityResult.none;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: const Text("Escalas"),
-          actions: [
-              TextButton.icon(
-                icon: const Icon(Icons.info_outline, color: Colors.white),
-                label: 
-                  const Text('Eventos', style: TextStyle(color: Colors.white)),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => EventosReligiososScreen(usuario: widget.usuario),
-                    ),
-                  );                
-                },
-              ),
-            
-            if (widget.usuario == null)
-              TextButton.icon(
-                icon: const Icon(Icons.login, color: Colors.white),
-                label:
-                    const Text('Login', style: TextStyle(color: Colors.white)),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  );
-                },
-              )
-            else
-              IconButton(
-                icon: const Icon(Icons.add),
-                tooltip: 'Nova Escala',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => EscalaForm(usuario: widget.usuario)),
-                  );
-                },
-              ),
-          ],
-        ),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: const InputDecoration(
-                        labelText: 'Buscar por nome do leitor',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _filtrarEscalasPorNome,
-                    child: const Text("Buscar"),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.clear),
-                    tooltip: 'Limpar filtro',
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() {
-                        _buscando = false;
-                      });
-                    },
-                  )
-                ],
+      appBar: AppBar(
+        title: const Text("Escalas"),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.info_outline, color: Colors.white),
+            label: const Text('Eventos', style: TextStyle(color: Colors.white)),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      EventosReligiososScreen(usuario: widget.usuario),
+                ),
+              );
+            },
+          ),
+          if (widget.usuario == null)
+            TextButton.icon(
+              icon: const Icon(Icons.login, color: Colors.white),
+              label: const Text('Login', style: TextStyle(color: Colors.white)),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'Nova Escala',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => EscalaForm(usuario: widget.usuario)),
+                );
+              },
+            ),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (_offline)
+            const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                'Você está offline. Mostrando escalas salvas no cache.',
+                style: TextStyle(color: Colors.orange),
               ),
             ),
-            Expanded(
-              child: StreamBuilder<List<EscalaLiturgica>>(
-                stream: _service.getEscalasLiturgicas(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  _todasEscalas = snapshot.data!;
-                  _escalasFiltradas =
-                      _buscando ? _escalasFiltradas : _todasEscalas;
-
-                  if (_escalasFiltradas.isEmpty) {
-                    return const Center(
-                        child: Text("Nenhuma escala encontrada."));
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _escalasFiltradas.length,
-                    itemBuilder: (context, index) {
-                      final escala = _escalasFiltradas[index];
-                      return FutureBuilder<Map<String, Leitor>>(
-                        future: _buscarLeitoresDaEscala(escala),
-                        builder: (context, snapshotLeitores) {
-                          if (!snapshotLeitores.hasData) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              child: Center(child: CircularProgressIndicator()),
-                            );
-                          }
-
-                          final leitores = snapshotLeitores.data!;
-                          return _buildCard(escala, leitores);
-                        },
-                      );
-                    },
-                  );
-                },
-              ),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar por nome do leitor',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _filtrarEscalasPorNome,
+                  child: const Text("Buscar"),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  tooltip: 'Limpar filtro',
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _buscando = false;
+                    });
+                  },
+                )
+              ],
             ),
-          ],
-        ));
+          ),
+          Expanded(
+            child: StreamBuilder<List<EscalaLiturgica>>(
+              stream: _service.getEscalasLiturgicas(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                _todasEscalas = snapshot.data!;
+                _escalasFiltradas =
+                    _buscando ? _escalasFiltradas : _todasEscalas;
+
+                if (_escalasFiltradas.isEmpty) {
+                  return const Center(
+                      child: Text("Nenhuma escala encontrada."));
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _escalasFiltradas.length,
+                  itemBuilder: (context, index) {
+                    final escala = _escalasFiltradas[index];
+                    return FutureBuilder<Map<String, Leitor>>(
+                      future: _buscarLeitoresDaEscala(escala),
+                      builder: (context, snapshotLeitores) {
+                        if (!snapshotLeitores.hasData) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+
+                        final leitores = snapshotLeitores.data!;
+                        return _buildCard(escala, leitores);
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<Map<String, Leitor>> _buscarLeitoresDaEscala(
@@ -298,9 +315,10 @@ class _EscalaLiturgicaViewState extends State<EscalaLiturgicaView> {
                   color: Colors.teal)),
           const SizedBox(height: 2),
           Text(leitor?.nome ?? '—', style: const TextStyle(fontSize: 15)),
-          if (leitor?.contacto != null && leitor!.contacto.trim().isNotEmpty)
-            Text(leitor.contacto,
-                style: const TextStyle(fontSize: 13, color: Colors.grey)),
+            if (widget.usuario != null)
+              if (leitor?.contacto != null && leitor!.contacto.trim().isNotEmpty)
+                Text(leitor.contacto,
+                    style: const TextStyle(fontSize: 13, color: Colors.grey)),
         ],
       ),
     );
@@ -339,5 +357,10 @@ class _EscalaLiturgicaViewState extends State<EscalaLiturgicaView> {
         );
       }
     }
+  }
+
+  Future<bool> isOffline() async {
+    final result = await Connectivity().checkConnectivity();
+    return result == ConnectivityResult.none;
   }
 }

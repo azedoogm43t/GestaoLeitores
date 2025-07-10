@@ -1,9 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:gestao_leitores/screens/escala_liturgica_view.dart';
-import 'package:gestao_leitores/screens/login_form.dart';
 import 'firebase_options.dart'; // gerado pelo flutterfire configure
-import 'screens/home_screen.dart';
 
 void main() async {
   // Garante que o Flutter esteja pronto antes de inicializações assíncronas
@@ -12,6 +11,10 @@ void main() async {
   // Inicializa o Firebase com as opções corretas para a plataforma atual
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true, // Habilita o cache offline
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
   runApp(const GestaoLeitoresApp());

@@ -88,12 +88,15 @@ class FirestoreService {
   }
 
   Stream<List<EscalaLiturgica>> getEscalasLiturgicas() {
-    return _db.collection('escalas_liturgicas').snapshots().map((snapshot) {
-      return snapshot.docs
+  return FirebaseFirestore.instance
+      .collection('escalas_liturgicas')
+      .orderBy('data')
+      .snapshots()
+      .map((snapshot) => snapshot.docs
           .map((doc) => EscalaLiturgica.fromMap(doc.data(), doc.id))
-          .toList();
-    });
-  }
+          .toList());
+}
+
 
   Future<void> updateEscalaLiturgica(EscalaLiturgica escala) async {
     if (escala.id.isEmpty) {
