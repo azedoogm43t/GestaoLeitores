@@ -4,6 +4,7 @@ class Leitor {
   final String contacto;
   final List<String> idiomas;
   final bool ativo;
+  final String observacao;
   final List<String> estadoCivil;
 
   Leitor({
@@ -12,6 +13,7 @@ class Leitor {
     required this.contacto,
     required this.idiomas,
     required this.ativo,
+    required this.observacao,
     required this.estadoCivil,
   });
 
@@ -21,6 +23,7 @@ class Leitor {
       'contacto': contacto,
       'idiomas': idiomas,
       'ativo': ativo,
+      'observacao': observacao,
       'estadoCivil': estadoCivil,
     };
   }
@@ -32,6 +35,7 @@ class Leitor {
       contacto: map['contacto'] ?? '',
       idiomas: List<String>.from(map['idiomas'] ?? []),
       ativo: map['ativo'] ?? true,
+      observacao: map['observacao'] ?? '',
       estadoCivil: List<String>.from(map['estadoCivil'] ?? []),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:gestao_leitores/models/usuarios.dart';
 import 'package:gestao_leitores/screens/leitores_list.dart';
+import 'package:gestao_leitores/screens/register_form.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../services/firestore_service.dart';
 import '../models/leitor.dart';
@@ -8,9 +10,10 @@ import 'escala_form.dart';
 import 'escala_liturgica_view.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key, this.leitor}) : super(key: key);
-  
-    final Leitor? leitor;
+  const HomeScreen({Key? key, this.leitor, this.usuario}) : super(key: key);
+
+  final Leitor? leitor;
+  final Usuario? usuario;
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
@@ -22,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
-   void _addEvent(DateTime day) async {
+  void _addEvent(DateTime day) async {
     final controller = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
@@ -34,8 +37,12 @@ class _HomeScreenState extends State<HomeScreen> {
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Salvar')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Salvar')),
         ],
       ),
     );
@@ -52,9 +59,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestão de Leitores'),
         centerTitle: true,
         backgroundColor: Colors.teal.shade700,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Text('Gestão de Leitores'),
+            if (widget.usuario != null)
+              Text(
+                widget.usuario!.nome,
+                style: const TextStyle(fontSize: 14, color: Colors.white70),
+              ),
+          ],
+        ),
       ),
       body: StreamBuilder<List<Leitor>>(
         stream: service.getLeitores(),
@@ -92,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 8),
 
               // ---------- CARD COM TOTAL ----------
-             InkWell(
+              InkWell(
                 borderRadius: BorderRadius.circular(12),
                 onTap: () {
                   Navigator.push(
@@ -132,10 +149,18 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _BottomBarButton(
                 icon: Icons.person_add,
-                label: 'Adicionar Leitor',
+                label: 'Leitor',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) =>  LeitorForm()),
+                  MaterialPageRoute(builder: (_) => LeitorForm()),
+                ),
+              ),
+              _BottomBarButton(
+                icon: Icons.person_add,
+                label: 'Utilizador',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => RegisterScreen()),
                 ),
               ),
               _BottomBarButton(
@@ -151,7 +176,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: 'Ver Escalas',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => EscalaLiturgicaView()),
+                  MaterialPageRoute(
+                      builder: (_) =>
+                          EscalaLiturgicaView(usuario: widget.usuario)),
                 ),
               ),
             ],
@@ -189,7 +216,6 @@ class _BottomBarButton extends StatelessWidget {
           ),
         ],
       ),
-      
     );
   }
 }

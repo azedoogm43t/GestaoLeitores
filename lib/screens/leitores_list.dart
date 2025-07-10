@@ -50,8 +50,9 @@ class LeitoresPage extends StatelessWidget {
                 ),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor:
-                        leitor.ativo ? Colors.green.shade300 : Colors.red.shade300,
+                    backgroundColor: leitor.ativo
+                        ? Colors.green.shade300
+                        : Colors.red.shade300,
                     child: Icon(
                       leitor.ativo ? Icons.check : Icons.close,
                       color: Colors.white,
