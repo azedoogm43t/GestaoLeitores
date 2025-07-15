@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 import '../models/leitor.dart';
@@ -41,34 +42,49 @@ class _LeitorFormState extends State<LeitorForm> {
   }
 
   void _salvar() async {
-    if (_formKey.currentState!.validate()) {
-      final leitor = Leitor(
-        id: widget.leitor?.id ?? '',
-        nome: _nomeController.text.trim(),
-        contacto: _contactoController.text.trim(),
-        idiomas: _idiomasSelecionados,
-        observacao: _observacaoController.text.trim(),
-        ativo: widget.leitor?.ativo ?? true,
-        estadoCivil: _estadoCivilSelecionado,
-      );
+  if (_formKey.currentState!.validate()) {
+    final leitor = Leitor(
+      id: widget.leitor?.id ?? '',
+      nome: _nomeController.text.trim(),
+      contacto: _contactoController.text.trim(),
+      idiomas: _idiomasSelecionados,
+      observacao: _observacaoController.text.trim(),
+      ativo: widget.leitor?.ativo ?? true,
+      estadoCivil: _estadoCivilSelecionado,
+    );
 
-      try {
-        if (widget.leitor == null) {
-          await _service.addLeitor(leitor);
-          _mostrarToast('Leitor cadastrado com sucesso!');
-        } else {
-          await _service.updateLeitor(leitor);
-          _mostrarToast('Leitor atualizado com sucesso!');
-        }
+    try {
+      // Verifica se já existe outro leitor com o mesmo contacto
+      final existe = await FirebaseFirestore.instance
+          .collection('leitores')
+          .where('contacto', isEqualTo: leitor.contacto)
+          .get();
 
-        // Aguarda 3 segundos antes de sair
-        await Future.delayed(const Duration(seconds: 3));
-        if (mounted) Navigator.pop(context);
-      } catch (e) {
-        _mostrarToast('Erro ao salvar leitor', isErro: true);
+      final ehEdicao = widget.leitor != null;
+
+      final duplicado = existe.docs.any((doc) => doc.id != leitor.id);
+
+      if (duplicado) {
+        _mostrarToast('Já existe um leitor com esse contacto!', isErro: true);
+        return;
       }
+
+      if (!ehEdicao) {
+        await _service.addLeitor(leitor);
+        _mostrarToast('Leitor cadastrado com sucesso!');
+      } else {
+        await _service.updateLeitor(leitor);
+        _mostrarToast('Leitor atualizado com sucesso!');
+      }
+
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      _mostrarToast('Erro ao salvar leitor', isErro: true);
     }
   }
+}
+
 
   @override
   void dispose() {
@@ -194,16 +210,21 @@ class _LeitorFormState extends State<LeitorForm> {
       ),
     );
   }
-
   void _mostrarToast(String mensagem, {bool isErro = false}) {
-    Fluttertoast.showToast(
-      msg: mensagem,
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.CENTER,
-      backgroundColor:
-          isErro ? Colors.redAccent : Color.fromARGB(255, 14, 116, 56),
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
-  }
+  final hexCor = isErro ? '#d32f2f' : '#388e3c'; // vermelho ou verde sólido
+
+  Fluttertoast.showToast(
+    msg: mensagem,
+    toastLength: Toast.LENGTH_SHORT,
+    gravity: ToastGravity.CENTER,             // <- MOBILE CENTRALIZADO
+    backgroundColor: isErro ? Colors.red : Colors.green,
+    textColor: Colors.white,
+    fontSize: 16.0,
+    webBgColor: "linear-gradient(to right, $hexCor, $hexCor)", // <- COR SÓLIDA
+    webPosition: "center",                    // <- WEB CENTRALIZADO
+  );
+}
+
+
+
 }

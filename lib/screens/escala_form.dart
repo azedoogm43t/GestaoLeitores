@@ -1,3 +1,4 @@
+import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:gestao_leitores/models/usuarios.dart';
@@ -222,30 +223,39 @@ class _EscalaFormState extends State<EscalaForm> with TickerProviderStateMixin {
     }
   }
 
-  DropdownButtonFormField<Leitor> _buildDropdown({
-    required String hint,
-    required Leitor? value,
-    required List<Leitor> lista,
-    required ValueChanged<Leitor?> onChanged,
-  }) {
-    return DropdownButtonFormField<Leitor>(
-      value: value,
-      decoration: InputDecoration(
+  Widget _buildDropdown({
+  required String hint,
+  required Leitor? value,
+  required List<Leitor> lista,
+  required ValueChanged<Leitor?> onChanged,
+}) {
+  // Ordenar os leitores por nome
+  final ordenada = [...lista]..sort((a, b) => a.nome.compareTo(b.nome));
+
+  return DropdownSearch<Leitor>(
+    items: ordenada,
+    selectedItem: value,
+    itemAsString: (leitor) => leitor.nome,
+    dropdownDecoratorProps: DropDownDecoratorProps(
+      dropdownSearchDecoration: InputDecoration(
         labelText: hint,
-        floatingLabelBehavior: FloatingLabelBehavior.always,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
-      items: lista.map((leitor) {
-        return DropdownMenuItem(
-          value: leitor,
-          child: Text(leitor.nome),
-        );
-      }).toList(),
-      onChanged: onChanged,
-      validator: (v) => v == null ? 'Obrigatório' : null,
-    );
-  }
+    ),
+    onChanged: onChanged,
+    validator: (v) => v == null ? 'Obrigatório' : null,
+    popupProps: const PopupProps.menu(
+      showSearchBox: true,
+      searchFieldProps: TextFieldProps(
+        decoration: InputDecoration(
+          labelText: 'Pesquisar...',
+          prefixIcon: Icon(Icons.search),
+        ),
+      ),
+    ),
+  );
+}
 
   Widget _buildDataSelector(DateTime dataSelecionada, VoidCallback onPressed) {
     return GestureDetector(
@@ -290,6 +300,7 @@ class _EscalaFormState extends State<EscalaForm> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
+      initialIndex: 0,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Nova Escala Litúrgica'),

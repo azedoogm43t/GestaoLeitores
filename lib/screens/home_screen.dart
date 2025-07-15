@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gestao_leitores/models/usuarios.dart';
 import 'package:gestao_leitores/screens/leitores_list.dart';
 import 'package:gestao_leitores/screens/register_form.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../services/firestore_service.dart';
 import '../models/leitor.dart';
@@ -19,7 +20,9 @@ class HomeScreen extends StatefulWidget {
   _HomeScreenState createState() => _HomeScreenState();
 }
 
+
 class _HomeScreenState extends State<HomeScreen> {
+
   final FirestoreService service = FirestoreService();
   final Map<DateTime, List<String>> _events = {};
   DateTime _focusedDay = DateTime.now();
@@ -54,6 +57,12 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
+
+@override
+void initState() {
+  super.initState();
+  initializeDateFormatting('pt_BR', null); // Brasil ou use 'pt_PT' para Portugal
+}
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // ---------- CALENDÁRIO ----------
               TableCalendar(
+                locale: 'pt_BR',
                 firstDay: DateTime.utc(2020, 1, 1),
                 lastDay: DateTime.utc(2100, 12, 31),
                 focusedDay: _focusedDay,
