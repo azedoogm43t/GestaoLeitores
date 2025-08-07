@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:gestao_leitores/models/leitor.dart';
 import 'package:gestao_leitores/models/usuarios.dart';
+import 'package:gestao_leitores/screens/escala_form.dart';
+import 'package:gestao_leitores/screens/escala_liturgica_view.dart';
+import 'package:gestao_leitores/screens/leitor_form.dart';
 import 'package:gestao_leitores/screens/leitores_list.dart';
 import 'package:gestao_leitores/screens/register_form.dart';
+import 'package:gestao_leitores/services/firestore_service.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:table_calendar/table_calendar.dart';
-import '../services/firestore_service.dart';
-import '../models/leitor.dart';
-import 'leitor_form.dart';
-import 'escala_form.dart';
-import 'escala_liturgica_view.dart';
+import 'package:gestao_leitores/screens/presenca_form.dart';
+import 'package:gestao_leitores/screens/presenca_view.dart'; // <-- Import PresencaView
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key, this.leitor, this.usuario}) : super(key: key);
@@ -20,9 +22,7 @@ class HomeScreen extends StatefulWidget {
   _HomeScreenState createState() => _HomeScreenState();
 }
 
-
 class _HomeScreenState extends State<HomeScreen> {
-
   final FirestoreService service = FirestoreService();
   final Map<DateTime, List<String>> _events = {};
   DateTime _focusedDay = DateTime.now();
@@ -58,11 +58,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-@override
-void initState() {
-  super.initState();
-  initializeDateFormatting('pt_BR', null); // Brasil ou use 'pt_PT' para Portugal
-}
+  @override
+  void initState() {
+    super.initState();
+    initializeDateFormatting('pt_BR', null); // Brasil ou use 'pt_PT' para Portugal
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -189,6 +189,22 @@ void initState() {
                   MaterialPageRoute(
                       builder: (_) =>
                           EscalaLiturgicaView(usuario: widget.usuario)),
+                ),
+              ),
+              _BottomBarButton(
+                icon: Icons.check_circle_outline,
+                label: 'Presenças',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => PresencaForm()),
+                ),
+              ),
+              _BottomBarButton(
+                icon: Icons.list_alt,  // New button for the PresencaView
+                label: 'Ver Presenças',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => PresencaView()), // Navigate to PresencaView
                 ),
               ),
             ],

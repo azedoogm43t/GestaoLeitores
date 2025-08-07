@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
 import '../services/firestore_service.dart';
 import '../models/leitor.dart';
 import 'leitor_form.dart';
@@ -14,6 +18,32 @@ class _LeitoresPageState extends State<LeitoresPage> {
   final service = FirestoreService();
   String filtro = '';
 
+  Future<void> _gerarPdf(List<Leitor> leitores) async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text('Lista de Leitores', style: pw.TextStyle(fontSize: 24)),
+              pw.SizedBox(height: 16),
+              ...leitores.map((leitor) => pw.Text(
+                    'Nome: ${leitor.nome} | Contacto: ${leitor.contacto} | Estado: ${leitor.ativo ? "Ativo" : "Inativo"}',
+                    style: const pw.TextStyle(fontSize: 14),
+                  )),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -23,7 +53,6 @@ class _LeitoresPageState extends State<LeitoresPage> {
       ),
       body: Column(
         children: [
-          // 🔍 Barra de pesquisa
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
@@ -39,8 +68,6 @@ class _LeitoresPageState extends State<LeitoresPage> {
               },
             ),
           ),
-
-          // 🔄 Lista de leitores com filtro e ordenação
           Expanded(
             child: StreamBuilder<List<Leitor>>(
               stream: service.getLeitores(),
@@ -54,11 +81,8 @@ class _LeitoresPageState extends State<LeitoresPage> {
                 }
 
                 List<Leitor> leitores = snapshot.data ?? [];
-
-                // 🔠 Ordenar alfabeticamente
                 leitores.sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
 
-                // 🔍 Aplicar filtro
                 if (filtro.isNotEmpty) {
                   leitores = leitores.where((leitor) {
                     final nome = leitor.nome.toLowerCase();
@@ -121,14 +145,12 @@ class _LeitoresPageState extends State<LeitoresPage> {
                         },
                       ),
                     ),
-
-                     // -------- Footer --------
                     Column(
                       children: const [
                         Divider(),
                         SizedBox(height: 6),
                         Text(
-                          'Desenvolvido por Dênis & Januário',
+                          'Desenvolvido por Januário',
                           style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                         Text(
@@ -145,13 +167,32 @@ class _LeitoresPageState extends State<LeitoresPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.teal,
-        child: const Icon(Icons.person_add),
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const LeitorForm()),
-        ),
+      floatingActionButton: StreamBuilder<List<Leitor>>(
+        stream: service.getLeitores(),
+        builder: (context, snapshot) {
+          final leitores = snapshot.data ?? [];
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              FloatingActionButton(
+                heroTag: 'addLeitor',
+                backgroundColor: Colors.teal,
+                child: const Icon(Icons.person_add),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LeitorForm()),
+                ),
+              ),
+              const SizedBox(width: 12),
+              FloatingActionButton(
+                heroTag: 'pdfLeitor',
+                backgroundColor: Colors.teal.shade300,
+                child: const Icon(Icons.picture_as_pdf),
+                onPressed: () => _gerarPdf(leitores),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
