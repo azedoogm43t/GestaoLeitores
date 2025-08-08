@@ -210,6 +210,13 @@ class FirestoreService {
       print('Erro ao registrar presença: $e');
       Fluttertoast.showToast(msg: 'Erro ao registrar presença');
     }
+    Future<void> atualizarPresenca(PresencaModel presenca) async {
+      await FirebaseFirestore.instance
+      .collection('presencas')
+      .doc(presenca.id)
+      .update(presenca.toMap());
+    }
+
   }
 
 // ==========================
@@ -244,5 +251,7 @@ Stream<List<PresencaModel>> getPresencas({String? escalaId, String? leitorId}) {
     rethrow; // Propaga o erro
   }
 }
+
+  Future<void> atualizarPresenca(PresencaModel presenca) async {}
 
 }

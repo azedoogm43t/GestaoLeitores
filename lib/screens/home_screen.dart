@@ -5,12 +5,15 @@ import 'package:gestao_leitores/screens/escala_form.dart';
 import 'package:gestao_leitores/screens/escala_liturgica_view.dart';
 import 'package:gestao_leitores/screens/leitor_form.dart';
 import 'package:gestao_leitores/screens/leitores_list.dart';
+import 'package:gestao_leitores/screens/rating_service.dart';
 import 'package:gestao_leitores/screens/register_form.dart';
 import 'package:gestao_leitores/services/firestore_service.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:gestao_leitores/screens/presenca_form.dart';
-import 'package:gestao_leitores/screens/presenca_view.dart'; // <-- Import PresencaView
+import 'package:gestao_leitores/screens/presenca_view.dart';
+
+// >>> Importa o serviço (cálculo do ranking)
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key, this.leitor, this.usuario}) : super(key: key);
@@ -24,6 +27,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final FirestoreService service = FirestoreService();
+  final RatingService ratingService = RatingService(FirestoreService());
+
   final Map<DateTime, List<String>> _events = {};
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
@@ -61,7 +66,59 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    initializeDateFormatting('pt_BR', null); // Brasil ou use 'pt_PT' para Portugal
+    initializeDateFormatting('pt_BR', null); // ou 'pt_PT'
+  }
+
+  // Abre a tela de ranking inline (sem criar ficheiro separado)
+  void _abrirRanking() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Ranking de Leitores'),
+            backgroundColor: Colors.teal.shade700,
+          ),
+          body: FutureBuilder<List<LeitorRating>>(
+            future: ratingService.getLeaderboardOnce(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snap.hasError) {
+                return Center(child: Text('Erro ao carregar ranking'));
+              }
+              final lista = snap.data ?? [];
+              if (lista.isEmpty) {
+                return const Center(child: Text('Sem avaliações válidas no momento.'));
+              }
+
+              return ListView.separated(
+                padding: const EdgeInsets.all(12),
+                itemCount: lista.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, i) {
+                  final r = lista[i];
+                  return ListTile(
+                    leading: CircleAvatar(child: Text('${i + 1}')),
+                    title: Text(r.nome),
+                    subtitle: Text(
+                      'Média: ${r.media.toStringAsFixed(1)}  '
+                      '(D:${r.mediaDiccao.toStringAsFixed(1)} | '
+                      'V:${r.mediaColocacaoVoz.toStringAsFixed(1)} | '
+                      'S:${r.mediaSinaisPontuacao.toStringAsFixed(1)} | '
+                      'R:${r.mediaRitmo.toStringAsFixed(1)} | '
+                      'E:${r.mediaEnsaio.toStringAsFixed(1)})',
+                    ),
+                    trailing: Text('${r.avaliacoes} aval.'),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -146,6 +203,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+
+              const SizedBox(height: 8),
+
+              // ---------- BOTÃO: RANKING (apenas redireciona) ----------
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _abrirRanking,
+                child: Card(
+                  color: Colors.amber.shade50,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const ListTile(
+                    leading: Icon(Icons.leaderboard, color: Colors.teal),
+                    title: Text('Ranking de Leitores'),
+                    // sem subtitle – só o título, como pediste
+                  ),
+                ),
+              ),
             ],
           );
         },
@@ -200,11 +277,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               _BottomBarButton(
-                icon: Icons.list_alt,  // New button for the PresencaView
+                icon: Icons.list_alt,
                 label: 'Ver Presenças',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => PresencaView()), // Navigate to PresencaView
+                  MaterialPageRoute(builder: (_) => PresencaView()),
                 ),
               ),
             ],

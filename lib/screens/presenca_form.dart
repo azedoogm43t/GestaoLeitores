@@ -1,21 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
 import 'package:gestao_leitores/models/escala_liturgica.dart';
 import 'package:gestao_leitores/models/leitor.dart';
 import 'package:gestao_leitores/models/presenca_model.dart';
 import 'package:gestao_leitores/services/firestore_service.dart';
 
-class PresencaForm extends StatefulWidget { 
+class PresencaForm extends StatefulWidget {
+  final PresencaModel? presenca; // se vier preenchido, é edição
+
+  const PresencaForm({Key? key, this.presenca}) : super(key: key);
+
   @override
   _PresencaFormState createState() => _PresencaFormState();
 }
 
-class _PresencaFormState extends State<PresencaForm> {   
+class _PresencaFormState extends State<PresencaForm> {
   final _formKey = GlobalKey<FormState>();
   final FirestoreService _firestoreService = FirestoreService();
 
   String? _escalaId;
   String? _leitorId;
-  DateTime _data = DateTime.now(); // Inicializa com a data atual
+  DateTime _data = DateTime.now();
+
   bool _presenteMissa = false;
   bool _presenteEnsaio = false;
 
@@ -29,10 +36,43 @@ class _PresencaFormState extends State<PresencaForm> {
   List<Leitor> _leitores = [];
   List<Leitor> _leitoresFiltrados = [];
 
+  late final TextEditingController _dataCtrl;
+
   @override
   void initState() {
     super.initState();
+    _dataCtrl = TextEditingController();
+
     _loadEscalasLiturgicas();
+
+    // Pré-carrega se for edição
+    if (widget.presenca != null) {
+      final p = widget.presenca!;
+      _escalaId = p.escalaId;
+      _leitorId = p.leitorId;
+      _data = p.data;
+      _presenteMissa = p.presenteMissa;
+      _presenteEnsaio = p.presenteEnsaio;
+      _diccao = p.diccao;
+      _colocacaoVoz = p.colocacaoVoz;
+      _sinaisPontuacao = p.sinaisPontuacao;
+      _ritmo = p.ritmo;
+      _observacao = p.observacao;
+      _updateDataCtrl();
+      _loadLeitores(); // carrega filtrados para a escala definida
+    } else {
+      _updateDataCtrl();
+    }
+  }
+
+  @override
+  void dispose() {
+    _dataCtrl.dispose();
+    super.dispose();
+  }
+
+  void _updateDataCtrl() {
+    _dataCtrl.text = DateFormat('yyyy-MM-dd').format(_data);
   }
 
   // Carregar as escalas litúrgicas do Firestore
@@ -44,55 +84,124 @@ class _PresencaFormState extends State<PresencaForm> {
     });
   }
 
-  // Carregar os leitores do Firestore, e filtrar com base na escala selecionada
+  // Carregar os leitores do Firestore e filtrar com base na escala selecionada
   void _loadLeitores() {
     _firestoreService.getLeitores().listen((leitores) {
       setState(() {
         _leitores = leitores;
 
-        // Filtrar os leitores com base na escala selecionada
-        if (_escalaId != null) {
-          final escalaSelecionada = _escalasLiturgicas.firstWhere((escala) => escala.id == _escalaId);
-          _leitoresFiltrados = _leitores.where((leitor) {
-            // Verificando se o leitor está relacionado com algum campo da escala
-            return [escalaSelecionada.introdutorId, escalaSelecionada.primeiraLeituraLLId, escalaSelecionada.primeiraLeituraPTId, 
-                    escalaSelecionada.segundaLeituraLLId, escalaSelecionada.segundaLeituraPTId, escalaSelecionada.evangelhoId]
-                    .contains(leitor.id);
-          }).toList();
+        if (_escalaId != null && _escalaId!.isNotEmpty) {
+          final escalaSelecionada = _escalasLiturgicas.firstWhere(
+            (escala) => escala.id == _escalaId,
+            orElse: () => EscalaLiturgica(
+              id: '',
+              domingo: '',
+              data: DateFormat('yyyy-MM-dd').format(_data),
+              introdutorId: '',
+              primeiraLeituraLLId: '',
+              primeiraLeituraPTId: '',
+              segundaLeituraLLId: '',
+              segundaLeituraPTId: '',
+              evangelhoId: '',
+            ),
+          );
+
+          final ids = <String>{
+            escalaSelecionada.introdutorId,
+            escalaSelecionada.primeiraLeituraLLId,
+            escalaSelecionada.primeiraLeituraPTId,
+            escalaSelecionada.segundaLeituraLLId,
+            escalaSelecionada.segundaLeituraPTId,
+            escalaSelecionada.evangelhoId,
+          }..removeWhere((e) => e.isEmpty);
+
+          _leitoresFiltrados = _leitores.where((l) => ids.contains(l.id)).toList();
+        } else {
+          _leitoresFiltrados = [];
         }
       });
     });
   }
 
-  // Salvar a presença
-  void _salvarPresenca() {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-      final presenca = PresencaModel(
-        id: '', // ID será gerado automaticamente pelo Firestore
-        escalaId: _escalaId!,
-        leitorId: _leitorId!,
-        data: _data,
-        presenteMissa: _presenteMissa,
-        presenteEnsaio: _presenteEnsaio,
-        diccao: _diccao,
-        colocacaoVoz: _colocacaoVoz,
-        sinaisPontuacao: _sinaisPontuacao,
-        ritmo: _ritmo,
-        observacao: _observacao,
-      );
+  // Nome do leitor pelo ID (para mostrar no item sintético)
+  String _nomeLeitorById(String? id) {
+    if (id == null) return '(sem leitor)';
+    try {
+      return _leitores.firstWhere((l) => l.id == id).nome;
+    } catch (_) {
+      return 'Leitor';
+    }
+  }
 
-      // Salvar no Firestore
-      _firestoreService.registrarPresenca(presenca);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Presença registrada!')));
-      Navigator.pop(context); // Fechar o formulário após salvar
+  // Constrói os itens do dropdown de leitor (mantendo seleção em edição)
+  List<DropdownMenuItem<String>> _buildLeitorItems() {
+    final items = _leitoresFiltrados
+        .map((l) => DropdownMenuItem<String>(
+              value: l.id,
+              child: Text(l.nome),
+            ))
+        .toList();
+
+    // Se estamos a editar e o leitor atual não está nos filtrados,
+    // injeta um item sintético com o próprio ID para manter a seleção.
+    if (_leitorId != null &&
+        _leitoresFiltrados.every((l) => l.id != _leitorId)) {
+      items.insert(
+        0,
+        DropdownMenuItem<String>(
+          value: _leitorId,
+          child: Text('${_nomeLeitorById(_leitorId)} (fora da escala)'),
+        ),
+      );
+    }
+    return items;
+  }
+
+  // Salvar (criar ou atualizar)
+  Future<void> _salvarPresenca() async {
+    if (!_formKey.currentState!.validate()) return;
+    _formKey.currentState!.save();
+
+    final presenca = PresencaModel(
+      id: widget.presenca?.id ?? '',
+      escalaId: _escalaId!,
+      leitorId: _leitorId!,
+      data: _data,
+      presenteMissa: _presenteMissa,
+      presenteEnsaio: _presenteEnsaio,
+      diccao: _diccao,
+      colocacaoVoz: _colocacaoVoz,
+      sinaisPontuacao: _sinaisPontuacao,
+      ritmo: _ritmo,
+      observacao: _observacao,
+    );
+
+    try {
+      if (widget.presenca != null && (widget.presenca!.id.isNotEmpty)) {
+        await _firestoreService.atualizarPresenca(presenca);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Presença atualizada!')),
+        );
+      } else {
+        await _firestoreService.registrarPresenca(presenca);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Presença registrada!')),
+        );
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao salvar presença: $e')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isEdit = widget.presenca != null;
+
     return Scaffold(
-      appBar: AppBar(title: Text('Registrar Presença')),
+      appBar: AppBar(title: Text(isEdit ? 'Editar Presença' : 'Registrar Presença')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -103,19 +212,34 @@ class _PresencaFormState extends State<PresencaForm> {
               children: [
                 // Seleção de Escala Litúrgica
                 DropdownButtonFormField<String>(
-                  decoration: InputDecoration(labelText: 'Selecione a Escala Litúrgica'),
+                  decoration: const InputDecoration(labelText: 'Selecione a Escala Litúrgica'),
                   value: _escalaId,
                   onChanged: (value) {
                     setState(() {
                       _escalaId = value;
-                      _leitorId = null; // Limpar o campo do leitor quando o domingo for alterado
+                      _leitorId = null; // ao mudar a escala, força nova escolha do leitor
 
-                      // Encontrar o domingo correspondente à escala selecionada
-                      final escalaSelecionada = _escalasLiturgicas.firstWhere((escala) => escala.id == _escalaId);
-                      // Atualizar a data com a data do domingo selecionado
-                      _data = DateTime.parse(escalaSelecionada.data); // Converter string para DateTime
+                      // Sincroniza a data com a escala escolhida
+                      final escalaSelecionada = _escalasLiturgicas.firstWhere(
+                        (escala) => escala.id == _escalaId,
+                        orElse: () => EscalaLiturgica(
+                          id: '',
+                          domingo: '',
+                          data: DateFormat('yyyy-MM-dd').format(_data),
+                          introdutorId: '',
+                          primeiraLeituraLLId: '',
+                          primeiraLeituraPTId: '',
+                          segundaLeituraLLId: '',
+                          segundaLeituraPTId: '',
+                          evangelhoId: '',
+                        ),
+                      );
 
-                      // Carregar leitores filtrados para a escala selecionada
+                      if (escalaSelecionada.data.isNotEmpty) {
+                        _data = DateTime.tryParse(escalaSelecionada.data) ?? _data;
+                        _updateDataCtrl();
+                      }
+
                       _loadLeitores();
                     });
                   },
@@ -125,125 +249,99 @@ class _PresencaFormState extends State<PresencaForm> {
                       child: Text(escala.domingo),
                     );
                   }).toList(),
-                  validator: (value) {
-                    if (value == null) {
-                      return 'Selecione uma escala';
-                    }
-                    return null;
-                  },
+                  validator: (value) => value == null ? 'Selecione uma escala' : null,
                 ),
 
-                // Campo de data - Exibido mas não editável
+                // Data (readOnly)
                 TextFormField(
-                  decoration: InputDecoration(labelText: 'Data'),
-                  controller: TextEditingController(text: _data.toLocal().toString().split(' ')[0]),
+                  decoration: const InputDecoration(labelText: 'Data'),
+                  controller: _dataCtrl,
                   readOnly: true,
-                  validator: (value) {
-                    if (value!.isEmpty) {
-                      return 'Campo obrigatório';
-                    }
-                    return null;
-                  },
+                  validator: (value) => (value == null || value.isEmpty) ? 'Campo obrigatório' : null,
                 ),
 
                 // Seleção de Leitor
                 DropdownButtonFormField<String>(
-                  decoration: InputDecoration(labelText: 'Selecione o Leitor'),
+                  decoration: const InputDecoration(labelText: 'Selecione o Leitor'),
                   value: _leitorId,
-                  onChanged: (value) {
-                    setState(() {
-                      _leitorId = value;
-                    });
-                  },
-                  items: _leitoresFiltrados.map((leitor) {
-                    return DropdownMenuItem<String>(
-                      value: leitor.id,
-                      child: Text(leitor.nome),
-                    );
-                  }).toList(),
-                  validator: (value) {
-                    if (value == null) {
-                      return 'Selecione um leitor';
-                    }
-                    return null;
-                  },
+                  items: _buildLeitorItems(),
+                  onChanged: (value) => setState(() => _leitorId = value),
+                  validator: (value) => value == null ? 'Selecione um leitor' : null,
                 ),
 
-                // Campo de presença
+                // Presenças
                 SwitchListTile(
-                  title: Text('Presente no Ensaio'),
+                  title: const Text('Presente no Ensaio'),
                   value: _presenteEnsaio,
                   onChanged: (value) => setState(() => _presenteEnsaio = value),
                 ),
                 SwitchListTile(
-                  title: Text('Presente na Missa'),
+                  title: const Text('Presente na Missa'),
                   value: _presenteMissa,
                   onChanged: (value) => setState(() => _presenteMissa = value),
                 ),
 
-                // Avaliação de dicção
                 if (_presenteMissa) ...[
-                  Text('Avaliação (0 a 10):'),
-                  Text('Dicção'),
+                  const SizedBox(height: 8),
+                  const Text('Avaliação (0 a 10):', style: TextStyle(fontWeight: FontWeight.bold)),
+
+                  const SizedBox(height: 8),
+                  const Text('Dicção'),
                   Slider(
                     value: _diccao,
-                    min: 0,
-                    max: 10,
-                    divisions: 10,
-                    label: _diccao.toString(),
-                    onChanged: (value) => setState(() => _diccao = value),
+                    min: 0, max: 10, divisions: 10,
+                    label: _diccao.toStringAsFixed(0),
+                    onChanged: (v) => setState(() => _diccao = v),
                   ),
 
-                  // Avaliação de colocação de voz
-                  Text('Colocação de Voz'),
+                  const Text('Colocação de Voz'),
                   Slider(
                     value: _colocacaoVoz,
-                    min: 0,
-                    max: 10,
-                    divisions: 10,
-                    label: _colocacaoVoz.toString(),
-                    onChanged: (value) => setState(() => _colocacaoVoz = value),
+                    min: 0, max: 10, divisions: 10,
+                    label: _colocacaoVoz.toStringAsFixed(0),
+                    onChanged: (v) => setState(() => _colocacaoVoz = v),
                   ),
 
-                  // Avaliação de sinais de pontuação
-                  Text('Sinais de Pontuação'),
+                  const Text('Sinais de Pontuação'),
                   Slider(
                     value: _sinaisPontuacao,
-                    min: 0,
-                    max: 10,
-                    divisions: 10,
-                    label: _sinaisPontuacao.toString(),
-                    onChanged: (value) => setState(() => _sinaisPontuacao = value),
+                    min: 0, max: 10, divisions: 10,
+                    label: _sinaisPontuacao.toStringAsFixed(0),
+                    onChanged: (v) => setState(() => _sinaisPontuacao = v),
                   ),
 
-                  // Avaliação de ritmo
-                  Text('Ritmo'),
+                  const Text('Ritmo'),
                   Slider(
                     value: _ritmo,
-                    min: 0,
-                    max: 10,
-                    divisions: 10,
-                    label: _ritmo.toString(),
-                    onChanged: (value) => setState(() => _ritmo = value),
+                    min: 0, max: 10, divisions: 10,
+                    label: _ritmo.toStringAsFixed(0),
+                    onChanged: (v) => setState(() => _ritmo = v),
                   ),
                 ],
 
-                // Campo de observação
                 TextFormField(
-                  decoration: InputDecoration(labelText: 'Observação'),
+                  decoration: const InputDecoration(labelText: 'Observação'),
                   maxLines: 3,
-                  onSaved: (value) => _observacao = value ?? '',
+                  initialValue: _observacao,
+                  onSaved: (v) => _observacao = v ?? '',
                 ),
 
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _salvarPresenca,
-                  child: Text('Salvar'),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _salvarPresenca,
+                    icon: const Icon(Icons.save),
+                    label: Text(isEdit ? 'Guardar alterações' : 'Salvar'),
+                  ),
                 ),
-                SizedBox(height: 20), 
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('Cancelar'),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancelar'),
+                  ),
                 ),
               ],
             ),

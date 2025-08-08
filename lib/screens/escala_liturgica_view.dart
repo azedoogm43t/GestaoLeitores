@@ -271,12 +271,12 @@ class _EscalaLiturgicaViewState extends State<EscalaLiturgicaView> {
                           );
                         },
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded,
-                            color: Colors.red),
-                        tooltip: 'Excluir escala',
-                        onPressed: () => _confirmarExclusao(escala),
-                      ),
+                      // IconButton(
+                      //   icon: const Icon(Icons.delete_outline_rounded,
+                      //       color: Colors.red),
+                      //   tooltip: 'Excluir escala',
+                      //   onPressed: () => _confirmarExclusao(escala),
+                      // ),
                     ],
                   )
               ],
@@ -330,34 +330,34 @@ class _EscalaLiturgicaViewState extends State<EscalaLiturgicaView> {
     return DateFormat("EEEE, dd 'de' MMMM", 'pt_PT').format(data);
   }
 
-  Future<void> _confirmarExclusao(EscalaLiturgica escala) async {
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Excluir Escala'),
-        content: const Text('Tem certeza que deseja excluir esta escala?'),
-        actions: [
-          TextButton(
-            child: const Text('Cancelar'),
-            onPressed: () => Navigator.pop(context, false),
-          ),
-          TextButton(
-            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
-            onPressed: () => Navigator.pop(context, true),
-          ),
-        ],
-      ),
-    );
+  // Future<void> _confirmarExclusao(EscalaLiturgica escala) async {
+  //   final confirmar = await showDialog<bool>(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: const Text('Excluir Escala'),
+  //       content: const Text('Tem certeza que deseja excluir esta escala?'),
+  //       actions: [
+  //         TextButton(
+  //           child: const Text('Cancelar'),
+  //           onPressed: () => Navigator.pop(context, false),
+  //         ),
+  //         TextButton(
+  //           child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+  //           onPressed: () => Navigator.pop(context, true),
+  //         ),
+  //       ],
+  //     ),
+  //   );
 
-    if (confirmar == true) {
-      await _service.deleteEscalaLiturgica(escala.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Escala excluída com sucesso')),
-        );
-      }
-    }
-  }
+  //   if (confirmar == true) {
+  //     await _service.deleteEscalaLiturgica(escala.id);
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Escala excluída com sucesso')),
+  //       );
+  //     }
+  //   }
+  // }
 
   Future<bool> isOffline() async {
     final result = await Connectivity().checkConnectivity();

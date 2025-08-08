@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
 import 'package:gestao_leitores/models/escala_liturgica.dart';
 import 'package:gestao_leitores/models/leitor.dart';
 import 'package:gestao_leitores/models/presenca_model.dart';
 import 'package:gestao_leitores/services/firestore_service.dart';
-import 'package:intl/intl.dart';
+
+// >>> IMPORTA O TEU FORMULÁRIO AQUI (ajusta o path conforme a tua estrutura)
+import 'package:gestao_leitores/screens/presenca_form.dart';
 
 class PresencaView extends StatefulWidget {
   @override
@@ -12,9 +16,10 @@ class PresencaView extends StatefulWidget {
 
 class _PresencaViewState extends State<PresencaView> {
   final FirestoreService _firestoreService = FirestoreService();
+
   List<PresencaModel> _presencas = [];
   List<EscalaLiturgica> _escalas = [];
-  Map<String, Leitor> _leitores = {};  // Mudança: Map para armazenar leitores por id
+  Map<String, Leitor> _leitores = {}; // Map para armazenar leitores por id
 
   @override
   void initState() {
@@ -46,9 +51,7 @@ class _PresencaViewState extends State<PresencaView> {
   void _loadLeitores() {
     _firestoreService.getLeitores().listen((leitores) {
       setState(() {
-        _leitores = {
-          for (var leitor in leitores) leitor.id: leitor
-        };
+        _leitores = {for (var leitor in leitores) leitor.id: leitor};
       });
     });
   }
@@ -60,32 +63,37 @@ class _PresencaViewState extends State<PresencaView> {
 
   // Encontrar o nome do Leitor
   String _getLeitorNome(String leitorId) {
+    print('Buscando nome do leitor com ID: $leitorId');
     return _leitores[leitorId]?.nome ?? 'Leitor Desconhecido';
   }
-// Encontrar o Domingo da Escala
-String _getEscalaDomingo(String escalaId) {
-  final escala = _escalas.firstWhere(
-    (escala) => escala.id == escalaId, 
-    orElse: () => EscalaLiturgica(id: '', domingo: 'Domingo Desconhecido', data: '', introdutorId: '', primeiraLeituraLLId: '', primeiraLeituraPTId: '', segundaLeituraLLId: '', segundaLeituraPTId: '', evangelhoId: ''),
-  );
-  
-  // Se a escala não for encontrada, retornamos um valor padrão
-  return escala.domingo;
-}
 
+  // Encontrar o Domingo da Escala
+  String _getEscalaDomingo(String escalaId) {
+    final escala = _escalas.firstWhere(
+      (escala) => escala.id == escalaId,
+      orElse: () => EscalaLiturgica(
+        id: '',
+        domingo: 'Domingo Desconhecido',
+        data: '',
+        introdutorId: '',
+        primeiraLeituraLLId: '',
+        primeiraLeituraPTId: '',
+        segundaLeituraLLId: '',
+        segundaLeituraPTId: '',
+        evangelhoId: '',
+      ),
+    );
+   return escala.domingo;
+  }
 
   // Agrupar as presenças por Leitor
   Map<String, List<PresencaModel>> _groupPresencasByLeitor() {
-    Map<String, List<PresencaModel>> groupedPresencas = {};
-
+    final Map<String, List<PresencaModel>> groupedPresencas = {};
     for (var presenca in _presencas) {
       final leitorId = presenca.leitorId;
-      if (!groupedPresencas.containsKey(leitorId)) {
-        groupedPresencas[leitorId] = [];
-      }
+      groupedPresencas.putIfAbsent(leitorId, () => []);
       groupedPresencas[leitorId]!.add(presenca);
     }
-
     return groupedPresencas;
   }
 
@@ -95,9 +103,10 @@ String _getEscalaDomingo(String escalaId) {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Detalhes da Presença'),
+          title: const Text('Detalhes da Presença'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Leitor: ${_getLeitorNome(presenca.leitorId)}'),
               Text('Escala: ${_getEscalaDomingo(presenca.escalaId)}'),
@@ -108,17 +117,15 @@ String _getEscalaDomingo(String escalaId) {
                 Text('Dicção: ${presenca.diccao}'),
                 Text('Colocação de Voz: ${presenca.colocacaoVoz}'),
                 Text('Sinais de Pontuação: ${presenca.sinaisPontuacao}'),
-                Text('Ritmo: ${presenca.ritmo}')
+                Text('Ritmo: ${presenca.ritmo}'),
               ],
               Text('Observação: ${presenca.observacao}'),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text('Fechar'),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fechar'),
             ),
           ],
         );
@@ -126,20 +133,31 @@ String _getEscalaDomingo(String escalaId) {
     );
   }
 
+  // Navegar para o formulário em modo edição
+  Future<void> _editPresenca(PresencaModel presenca) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PresencaForm(presenca: presenca),
+      ),
+    );
+    // Streams já actualizam a lista, mas se quiser forçar:
+    // _loadPresencas();
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Agrupar as presenças por Leitor
-    Map<String, List<PresencaModel>> groupedPresencas = _groupPresencasByLeitor();
+    final groupedPresencas = _groupPresencasByLeitor();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Presenças Registradas'),
+        title: const Text('Presenças Registradas'),
         backgroundColor: Colors.teal.shade700,
       ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: _presencas.isEmpty
-            ? Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator())
             : ListView.builder(
                 itemCount: groupedPresencas.keys.length,
                 itemBuilder: (context, index) {
@@ -147,15 +165,29 @@ String _getEscalaDomingo(String escalaId) {
                   final leitorPresencas = groupedPresencas[leitorId]!;
 
                   return Card(
-                    margin: EdgeInsets.symmetric(vertical: 8),
+                    margin: const EdgeInsets.symmetric(vertical: 8),
                     child: ExpansionTile(
                       title: Text('Leitor: ${_getLeitorNome(leitorId)}'),
                       children: leitorPresencas.map((presenca) {
                         return ListTile(
                           title: Text('Escala: ${_getEscalaDomingo(presenca.escalaId)}'),
                           subtitle: Text('Data: ${_formatData(presenca.data)}'),
-                          trailing: Icon(Icons.more_vert),
                           onTap: () => _viewPresencaDetails(presenca),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: 'Editar',
+                                icon: const Icon(Icons.edit, color: Colors.blue),
+                                onPressed: () => _editPresenca(presenca),
+                              ),
+                              IconButton(
+                                tooltip: 'Mais detalhes',
+                                icon: const Icon(Icons.more_vert),
+                                onPressed: () => _viewPresencaDetails(presenca),
+                              ),
+                            ],
+                          ),
                         );
                       }).toList(),
                     ),
